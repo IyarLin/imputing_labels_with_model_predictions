@@ -13,7 +13,7 @@ Iyar Lin
 Motivation
 ==========
 
-In some scenarios a data scientist may want to train a model for which there exists an abundance of observations, of which only a small fraction is labeled, making the sample size available to train the model rather small. Although there's plenty of literature on the subject (e.g. "Active learning", "Semi-supervised learning" etc) one may be tempted (maybe due to fast approaching deadlines) to impute the unlabeled data with the values predicted by a model trained on the labeled data.
+In some scenarios a data scientist may want to train a model for which there exists an abundance of observations, of which only a small fraction is labeled, making the sample size available to train the model rather small. Although there's plenty of literature on the subject (e.g. "Active learning", "Semi-supervised learning" etc) one may be tempted (maybe due to fast approaching deadlines) to train a model with the labelled data and use it to impute the missing labels.
 
 While for some the above suggestion might seem simply incorrect, I have encountered such suggestions on several occasions and had a hard time refuting them. To make sure it wasn't just the type of places I work at I went and asked around in 2 Israeli (sorry non Hebrew readers) machine learning oriented Facebook groups about their opinion: [Machine & Deep learning Israel](https://www.facebook.com/groups/543283492502370/permalink/1158551544308892/) and [Statistics and probability group](https://www.facebook.com/groups/statprob/permalink/767687730239611/). While many were referring me to methods discussed in the literature, almost no one indicated the proposed method was utterly wrong.
 
@@ -71,7 +71,7 @@ available_train_data$y[21:800] <- imputed_labels
 large_model <- lm(y ~ ., data = available_train_data)
 ```
 
-Next we'll measure the performance of the small and large models on the test set:
+Next we'll measure the performance (Root mean squared error) of the small and large models on the test set:
 
 ``` r
 RMSE <- function(y, y_hat) sqrt(mean((y - y_hat)^2))
@@ -104,16 +104,16 @@ pandoc.table(data.frame(model = c("small model", "large model"), RMSE = c(small_
 </tbody>
 </table>
 
-We can see that imputing the data didn't improve neither did it hurt the model performance.
+We can see that imputing the labels didn't improve neither did it hurt the model performance.
 
 The ugly case
 -------------
 
-There are cases however where the above procedure can be harmful. In some organizations one has access to man power that can manually tag observations. Since such tagging process is costly in time and money, one may try to "enhance" it with additional tags from the small model using the above procedure. In the simulation below I demonstrate this has the effect of "diluting" the information gained from the manual tagging process thus reducing its effectiveness.
+There are cases however where the above procedure can be harmful. In some organizations one has access to man-power that can manually label observations. Since such labelling process is costly in time and money, one may try to "enhance" it with additional labels from the small model using the above procedure. In the simulation below I demonstrate this has the effect of "diluting" the information gained from the manual labelling process thus reducing its effectiveness.
 
 ``` r
 available_train_data <- train_data; available_train_data$y[21:800] <- NA
-available_train_data$y[21:200] <- train_data$y[21:200] # this represents manual tagging of additional 180 observations
+available_train_data$y[21:200] <- train_data$y[21:200] # this represents manual labelling of additional 180 observations
 new_small_model <- lm(y ~ ., data = available_train_data)
 imputed_labels <- predict(small_model, available_train_data[101:800, ])
 available_train_data$y[101:800] <- imputed_labels
