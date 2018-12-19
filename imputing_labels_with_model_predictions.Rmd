@@ -83,7 +83,7 @@ available_train_data$y[21:800] <- imputed_labels
 large_model <- lm(y ~ ., data = available_train_data)
 ```
 
-Next we'll measure the performance (Root mean squared error) of the small and large models on the test set:
+Next we'll measure the performance (Root mean squared error, lower is better) of the small and large models on the test set:
 
 ```{r measure perforamce on test set, results = "asis"}
 RMSE <- function(y, y_hat) sqrt(mean((y - y_hat)^2))
