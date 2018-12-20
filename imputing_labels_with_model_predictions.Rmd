@@ -39,7 +39,7 @@ This post is intended to prove to myself and anyone else interested that imputin
 
 Formally speaking, given feature matrix $X$, labels $y$ and a set of indices $I$ for which the labels are missing the procedure discussed is:
 
-1. Train "small" model $\hat{f_S}(x)$ based on the observations $\{X_i,y_i\}, \, i \notin I$
+1. Train "small" model $\hat{f_S}(x)$ based on the observations $\{X_i,y_i\}, \, i \in \{1 \dots n\} \setminus I$
 1. Predict the labels $\hat{y}_i=\hat{f_S}(x_i), \, i \in I$
 1. Train "large" model $\hat{f_L}(x)$ on the full sample $\{X, y\}$
 
@@ -73,11 +73,22 @@ sim_data$y <- as.numeric(cbind(1, as.matrix(sim_data)) %*% beta) + rnorm(nobs)
 train_data <- sim_data[1:800, ]; test_data <- sim_data[801:1000, ]
 ```
 
-Now we'll start implementing the above procedure, assuming the data scientist has labels for the first 20 observations.
+Assuming the data scientist has labels for the first 20 observations.
 
-```{r perform procedure on first 20 points}
-available_train_data <- train_data; available_train_data$y[21:800] <- NA
+```{r only 20 labels}
+available_train_data <- train_data
+available_train_data$y[21:800] <- NA
+```
+
+We start implementing the above procedure by training the small model on the labelled data:
+
+```{r train small model}
 small_model <- lm(y ~ ., data = available_train_data)
+```
+
+Imputing the rest of the labels and training our model on the full train sample:
+
+```{r impute rest of labels}
 imputed_labels <- predict(small_model, available_train_data[21:800, ])
 available_train_data$y[21:800] <- imputed_labels
 large_model <- lm(y ~ ., data = available_train_data)
@@ -99,21 +110,37 @@ We can see that imputing the labels didn't improve neither did it hurt the model
 
 There are cases however where the above procedure can be harmful. In some organizations one has access to man-power that can manually label observations. Since such labelling process is costly in time and money, one may try to "enhance" it with additional labels from the small model using the above procedure. In the simulation below I demonstrate this has the effect of "diluting" the information gained from the manual labelling process thus reducing its effectiveness.
 
-```{r new lage model performance, results = "asis"}
-available_train_data <- train_data; available_train_data$y[21:800] <- NA
-available_train_data$y[21:200] <- train_data$y[21:200] # this represents manual labelling of additional 180 observations
-new_small_model <- lm(y ~ ., data = available_train_data)
-imputed_labels <- predict(small_model, available_train_data[101:800, ])
-available_train_data$y[101:800] <- imputed_labels
-new_large_model <- lm(y ~ ., data = available_train_data)
+We begin with a train data where only the first 20 observations are labelled:
 
+```{r start over}
+available_train_data <- train_data; available_train_data$y[21:800] <- NA
+```
+
+Next we have 180 more observations tagged:
+
+```{r manually label 180 labels}
+available_train_data$y[21:200] <- train_data$y[21:200] # this represents manual labelling of additional 180 observations
+```
+
+Next we impute the rest of the labels using our small model and train our model on the full train sample:
+
+```{r redo the procedure}
+new_small_model <- lm(y ~ ., data = available_train_data)
+imputed_labels <- predict(small_model, available_train_data[201:800, ])
+available_train_data$y[201:800] <- imputed_labels
+new_large_model <- lm(y ~ ., data = available_train_data)
+```
+
+Below are the resulting RMSE:
+
+```{r new large model performance, results = "asis"}
 new_small_model_performance <- RMSE(y = test_data$y, y_hat = predict(new_small_model, test_data))
 new_large_model_performance <- RMSE(y = test_data$y, y_hat = predict(new_large_model, test_data))
 
 pandoc.table(data.frame(model = c("new small model", "new large model"), RMSE = c(new_small_model_performance, new_large_model_performance)))
 ```
 
-We can see that while both models improved, the model with the imputed labels improved less.
+We can see that while both models improved, the large model with imputed labels improved less than the small model using only the observations with labels.
 
 # Conclusion
 

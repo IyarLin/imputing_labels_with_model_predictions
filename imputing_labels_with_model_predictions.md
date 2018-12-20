@@ -1,7 +1,7 @@
 Does imputing model labels using the model predictions can improve it's performance?
 ================
 Iyar Lin
-19 December, 2018
+20 December, 2018
 
 -   [Motivation](#motivation)
 -   [The proposed procedure](#the-proposed-procedure)
@@ -24,7 +24,7 @@ The proposed procedure
 
 Formally speaking, given feature matrix ![X](https://latex.codecogs.com/png.latex?X "X"), labels ![y](https://latex.codecogs.com/png.latex?y "y") and a set of indices ![I](https://latex.codecogs.com/png.latex?I "I") for which the labels are missing the procedure discussed is:
 
-1.  Train "small" model ![\\hat{f\_S}(x)](https://latex.codecogs.com/png.latex?%5Chat%7Bf_S%7D%28x%29 "\hat{f_S}(x)") based on the observations ![\\{X\_i,y\_i\\}, \\, i \\notin I](https://latex.codecogs.com/png.latex?%5C%7BX_i%2Cy_i%5C%7D%2C%20%5C%2C%20i%20%5Cnotin%20I "\{X_i,y_i\}, \, i \notin I")
+1.  Train "small" model ![\\hat{f\_S}(x)](https://latex.codecogs.com/png.latex?%5Chat%7Bf_S%7D%28x%29 "\hat{f_S}(x)") based on the observations ![\\{X\_i,y\_i\\}, \\, i \\in \\{1 \\dots n\\} \\setminus I](https://latex.codecogs.com/png.latex?%5C%7BX_i%2Cy_i%5C%7D%2C%20%5C%2C%20i%20%5Cin%20%5C%7B1%20%5Cdots%20n%5C%7D%20%5Csetminus%20I "\{X_i,y_i\}, \, i \in \{1 \dots n\} \setminus I")
 2.  Predict the labels ![\\hat{y}\_i=\\hat{f\_S}(x\_i), \\, i \\in I](https://latex.codecogs.com/png.latex?%5Chat%7By%7D_i%3D%5Chat%7Bf_S%7D%28x_i%29%2C%20%5C%2C%20i%20%5Cin%20I "\hat{y}_i=\hat{f_S}(x_i), \, i \in I")
 3.  Train "large" model ![\\hat{f\_L}(x)](https://latex.codecogs.com/png.latex?%5Chat%7Bf_L%7D%28x%29 "\hat{f_L}(x)") on the full sample ![\\{X, y\\}](https://latex.codecogs.com/png.latex?%5C%7BX%2C%20y%5C%7D "\{X, y\}")
 
@@ -61,11 +61,22 @@ sim_data$y <- as.numeric(cbind(1, as.matrix(sim_data)) %*% beta) + rnorm(nobs)
 train_data <- sim_data[1:800, ]; test_data <- sim_data[801:1000, ]
 ```
 
-Now we'll start implementing the above procedure, assuming the data scientist has labels for the first 20 observations.
+Assuming the data scientist has labels for the first 20 observations.
 
 ``` r
-available_train_data <- train_data; available_train_data$y[21:800] <- NA
+available_train_data <- train_data
+available_train_data$y[21:800] <- NA
+```
+
+We start implementing the above procedure by training the small model on the labelled data:
+
+``` r
 small_model <- lm(y ~ ., data = available_train_data)
+```
+
+Imputing the rest of the labels and training our model on the full train sample:
+
+``` r
 imputed_labels <- predict(small_model, available_train_data[21:800, ])
 available_train_data$y[21:800] <- imputed_labels
 large_model <- lm(y ~ ., data = available_train_data)
@@ -111,14 +122,30 @@ The ugly case
 
 There are cases however where the above procedure can be harmful. In some organizations one has access to man-power that can manually label observations. Since such labelling process is costly in time and money, one may try to "enhance" it with additional labels from the small model using the above procedure. In the simulation below I demonstrate this has the effect of "diluting" the information gained from the manual labelling process thus reducing its effectiveness.
 
+We begin with a train data where only the first 20 observations are labelled:
+
 ``` r
 available_train_data <- train_data; available_train_data$y[21:800] <- NA
-available_train_data$y[21:200] <- train_data$y[21:200] # this represents manual labelling of additional 180 observations
-new_small_model <- lm(y ~ ., data = available_train_data)
-imputed_labels <- predict(small_model, available_train_data[101:800, ])
-available_train_data$y[101:800] <- imputed_labels
-new_large_model <- lm(y ~ ., data = available_train_data)
+```
 
+Next we have 180 more observations tagged:
+
+``` r
+available_train_data$y[21:200] <- train_data$y[21:200] # this represents manual labelling of additional 180 observations
+```
+
+Next we impute the rest of the labels using our small model and train our model on the full train sample:
+
+``` r
+new_small_model <- lm(y ~ ., data = available_train_data)
+imputed_labels <- predict(small_model, available_train_data[201:800, ])
+available_train_data$y[201:800] <- imputed_labels
+new_large_model <- lm(y ~ ., data = available_train_data)
+```
+
+Below are the resulting RMSE:
+
+``` r
 new_small_model_performance <- RMSE(y = test_data$y, y_hat = predict(new_small_model, test_data))
 new_large_model_performance <- RMSE(y = test_data$y, y_hat = predict(new_large_model, test_data))
 
@@ -143,12 +170,12 @@ pandoc.table(data.frame(model = c("new small model", "new large model"), RMSE = 
 </tr>
 <tr class="even">
 <td align="center">new large model</td>
-<td align="center">0.9976</td>
+<td align="center">0.9856</td>
 </tr>
 </tbody>
 </table>
 
-We can see that while both models improved, the model with the imputed labels improved less.
+We can see that while both models improved, the large model with imputed labels improved less than the small model using only the observations with labels.
 
 Conclusion
 ==========
